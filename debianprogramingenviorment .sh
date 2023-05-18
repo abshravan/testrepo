@@ -6,6 +6,6 @@ sudo apt update
 sudo apt install git -y 
 #Installing Text editor
 echo "Installing the text editor"
-sudo snap install code 
+sudo snap install code --classic
 #Installing and updating gcc compiler
 sudo apt install -y
