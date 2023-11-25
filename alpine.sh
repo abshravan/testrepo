@@ -1,40 +1,60 @@
-#!/bin/sh
+#!/bin/bash
 
-# Update package repositories
+# Update the Alpine Linux package manager
 apk update
 
-# Install required packages
-apk add qtile py3-setuptools py3-xcffib py3-wheel py3-pip dbus-x11 wayland wayland-protocols \
-  cairo-dev pango-dev gdk-pixbuf-dev libffi-dev alsa-lib-dev libxkbcommon-dev git
+# Install the necessary packages for Qtile, Waybar, and Wayland
+apk add --no-cache qtile pycairo xorg wlroots dbus alsa-utils
 
-# Install additional dependencies for Waybar
-apk add cmake fmt wayland-protocols-dev jsoncpp-dev spdlog-dev xcb-util-wm-devel xcb-util-image-devel \
-  xcb-util-cursor-devel
+# Install the Wayland compositor Weston
+apk add weston
 
-# Install Waybar from source
-git clone https://github.com/Alexays/Waybar.git
-cd Waybar
-mkdir build && cd build
-cmake ..
-make
-make install
+# Create a new Qtile user and set it as the default user
+adduser --shell /bin/sh qtile
+usermod -s /bin/bash qtile
+usermod -aG audio qtile
 
-# Install Qtile and additional Python dependencies
-pip install qtile
+# Set the default Wayland backend for Qtile
+echo "QT_QPA_PLATFORM=wayland" > ~/.profile
 
-# Enable DBus for Qtile
-mkdir -p /etc/xdg/autostart/
-cp /usr/share/dbus-1/services/org.xfce.xfconf.service /etc/xdg/autostart/
-sed -i 's/TryExec=xfconfd/TryExec=qtile/g' /etc/xdg/autostart/org.xfce.xfconf.service
+# Create a new systemd service file for Qtile
+cat > /etc/systemd/system/qtile.service << EOF
+[Unit]
+Description=Qtile window manager
+After=weston.service
 
-# Optionally, set up a minimal Qtile configuration
-mkdir -p ~/.config/qtile
-cat <<EOF > ~/.config/qtile/config.py
-# Your Qtile configuration goes here
-# For a basic setup, you can start with examples from Qtile documentation
-# https://qtile.readthedocs.io/en/latest/manual/config/index.html
+[Service]
+Type=simple
+User=qtile
+ExecStart=/bin/qtile
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
-# Start Wayland session with Qtile and Waybar
-export QT_QPA_PLATFORM=wayland
-qtile
+# Enable and start the Qtile systemd service
+systemctl enable qtile.service
+systemctl start qtile.service
+
+# Install Waybar
+apk add waybar
+
+# Create a new Waybar configuration file
+cat > ~/.config/waybar/config.yml << EOF
+bar {
+    position = 'top'
+    monitor = 'default'
+    modules {
+        clock {
+            format = '%a %b %d %H:%M:%S'
+        }
+        windowlist {
+            border = false
+        }
+    }
+}
+EOF
+
+# Start Waybar
+waybar
